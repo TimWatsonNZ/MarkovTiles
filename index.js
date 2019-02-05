@@ -93,7 +93,11 @@ const grow = (chances) => (tile) => {
 
   neighbours.forEach((neighbour, i) => {
     if (!neighbour.color) return;
-    matrixChances[neighbour.color] += chances[tile.color][i][neighbour.color];
+    if (!tile.color) {
+      matrixChances[neighbour.color] += chances[neighbour.color][i][neighbour.color];
+    } else {
+      matrixChances[neighbour.color] += chances[tile.color][i][neighbour.color];
+    }
   });
 
   const sum = matrixChances[OCEAN] + matrixChances[GRASS];
@@ -103,7 +107,7 @@ const grow = (chances) => (tile) => {
   matrixChances[OCEAN] /= sum;
   matrixChances[GRASS] /= sum;
 
-  if (1 - Math.random() > matrixChances[OCEAN]) {
+  if (Math.random() + matrixChances[GRASS] < Math.random() + matrixChances[OCEAN]) {
     return OCEAN;
   }
   return GRASS;
@@ -151,18 +155,41 @@ const drawTiles = () => {
 
 const seedIsland = () => {
   const island = [
-    [{ x: 0, y: 0, color: OCEAN }, { x: 1, y: 0, color: OCEAN }, { x: 2, y: 0, color: GRASS },{ x: 3, y: 0, color: OCEAN }, { x: 4, y: 0, color: OCEAN } ],
-    [{ x: 0, y: 1, color: OCEAN }, { x: 1, y: 1, color: GRASS }, { x: 2, y: 1, color: GRASS },{ x: 3, y: 1, color: GRASS }, { x: 4, y: 1, color: OCEAN } ],
-    [{ x: 0, y: 2, color: GRASS }, { x: 1, y: 2, color: GRASS }, { x: 2, y: 2, color: GRASS },{ x: 3, y: 2, color: GRASS }, { x: 4, y: 2, color: GRASS } ],
-    [{ x: 0, y: 3, color: OCEAN }, { x: 1, y: 3, color: GRASS }, { x: 2, y: 3, color: GRASS },{ x: 3, y: 3, color: GRASS }, { x: 4, y: 3, color: OCEAN } ],
-    [{ x: 0, y: 4, color: OCEAN }, { x: 1, y: 4, color: OCEAN }, { x: 2, y: 4, color: GRASS },{ x: 3, y: 4, color: OCEAN }, { x: 4, y: 4, color: OCEAN } ],
+    [OCEAN, OCEAN,OCEAN,OCEAN, OCEAN,],
+    [OCEAN, GRASS,GRASS,GRASS, OCEAN,],
+    [OCEAN, GRASS,GRASS,GRASS, OCEAN,],
+    [OCEAN, GRASS,GRASS,GRASS, OCEAN,],
+    [OCEAN, OCEAN,GRASS,OCEAN, OCEAN,],
   ];
 
   const middle = Math.round(tiles.length / 2) - Math.round(island.length / 2);
 
   for (let row = 0;row < island.length; row++){
     for (let column = 0;column < island.length; column++){
-      tiles[middle + row][middle + column].color = island[row][column].color;
+      tiles[middle + row][middle + column].color = island[row][column];
+    }
+  }
+}
+
+const seedT = () => {
+  const t = [
+    [GRASS, GRASS,GRASS,GRASS, GRASS, GRASS, GRASS],
+    [GRASS, GRASS,GRASS,GRASS, GRASS, GRASS, GRASS],
+    [GRASS, GRASS,GRASS,GRASS, GRASS, GRASS, GRASS],
+    [OCEAN, OCEAN,GRASS,GRASS, GRASS, OCEAN, OCEAN],
+    [OCEAN, OCEAN,GRASS,GRASS, GRASS, OCEAN, OCEAN],
+    [OCEAN, OCEAN,GRASS,GRASS, GRASS, OCEAN, OCEAN],
+    [OCEAN, OCEAN,GRASS,GRASS, GRASS, OCEAN, OCEAN],
+    [OCEAN, OCEAN,GRASS,GRASS, GRASS, OCEAN, OCEAN],
+    [OCEAN, OCEAN,GRASS,GRASS, GRASS, OCEAN, OCEAN],
+    [OCEAN, OCEAN,GRASS,GRASS, GRASS, OCEAN, OCEAN],
+  ];
+
+  const middle = Math.round(tiles.length / 2) - Math.round(t.length / 2);
+
+  for (let row = 0;row < t.length; row++){
+    for (let column = 0;column < t.length; column++){
+      tiles[middle + row][middle + column].color = t[row][column];
     }
   }
 }
@@ -210,14 +237,21 @@ const analyze = () => {
 // applyRule(randomCreateOceanRule);
 // applyRule(grow)
 // applyRule(createShoreline);
-seedIsland();
+seedT();
 const chances = analyze();
 applyRule(grow(chances));
-// applyRule(grow(chances));
-// applyRule(grow(chances));
-// applyRule(grow(chances));
-// applyRule(grow(chances));
-// applyRule(grow(chances));
+applyRule(grow(chances));
+applyRule(grow(chances));
+applyRule(grow(chances));
+applyRule(grow(chances));
+applyRule(grow(chances));
+applyRule(grow(chances));
+applyRule(grow(chances));
+applyRule(grow(chances));
+applyRule(grow(chances));
+applyRule(grow(chances));
+applyRule(grow(chances));
+applyRule(grow(chances));
 // applyRule(grow(chances));
 // applyRule(grow);
 // applyRule(grow);
