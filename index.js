@@ -9,13 +9,23 @@ document.body.appendChild(canvas);
 const context = canvas.getContext('2d');
 let tiles = [];
 
+const GRASS = 'GRASS';
+const OCEAN = 'OCEAN';
+const FOREST = 'FOREST';
+
+const colors = {
+  GRASS: '#00FF00',
+  OCEAN: '#0000FF',
+  FOREST: '#006400'
+}
+
 class Tile {
   constructor(x, y, color) {
     this.x = x; this.y = y; this.color = color;
   }
 
   draw(context) {
-    context.fillStyle = this.color || '#FFFFFF';
+    context.fillStyle = colors[this.color] || '#FFFFFF';
     context.fillRect(this.x, this.y, tileSize, tileSize);
   }
 }
@@ -61,10 +71,6 @@ function getNeighbours(centerTile) {
   return neighbours;
 }
 
-const GRASS = '#00FF00';
-const OCEAN = '#0000FF';
-const FOREST = '#006400';
-
 
 const growGrassRule = (tile) => {
   if (Math.random() > 0.6) return GRASS; 
@@ -77,30 +83,30 @@ const randomCreateOceanRule = (tile) => {
 }
 
 const createOceanRule = (tile) => {
-  return '#0000FF';
+  return OCEAN;
 }
 
 const grow = (chances) => (tile) => {
   const neighbours = getNeighbours(tile);
 
-  // if (neighbours.length < 8) return OCEAN;
+  const matrixChances = { OCEAN: 0, GRASS: 0 };
 
-  const countGrass = () => neighbours.filter(x => x.color === GRASS).length;
-  const countOcean = () => neighbours.filter(x => x.color === OCEAN).length
-  
-  const chanceForGrass = chances[`grass:${countGrass()}`];
-  const chanceForOcean = chances[`ocean:${countOcean()}`];
+  neighbours.forEach((neighbour, i) => {
+    if (!neighbour.color) return;
+    matrixChances[neighbour.color] += chances[tile.color][i][neighbour.color];
+  });
 
-  if (!chanceForGrass || chanceForGrass.chance === 0) {
+  const sum = matrixChances[OCEAN] + matrixChances[GRASS];
+  if (sum === 0) {
+    return tile.color;
+  }
+  matrixChances[OCEAN] /= sum;
+  matrixChances[GRASS] /= sum;
+
+  if (1 - Math.random() > matrixChances[OCEAN]) {
     return OCEAN;
   }
-  if (!chanceForOcean || chanceForOcean.chance === 0) {
-    return GRASS;
-  }
-  
-  return Math.random() > 1 - chanceForGrass ? OCEAN : GRASS; 
-
-  return tile.color;
+  return GRASS;
 }
 
 const createShoreline = (tile) => {
@@ -109,11 +115,11 @@ const createShoreline = (tile) => {
   if (neighbours.length < 8) {
     return tile.color;
   }
-  if ((neighbours[3].color === '#0000FF' && neighbours[4].color === '#0000FF') ||
-  (neighbours[1].color === '#0000FF' && neighbours[6].color === '#0000FF') ||
-  (neighbours[0].color === '#0000FF' && neighbours[7].color === '#0000FF') ||
-  (neighbours[2].color === '#0000FF' && neighbours[5].color === '#0000FF')) {
-    return '#0000FF';
+  if ((neighbours[3].color === OCEAN && neighbours[4].color === OCEAN) ||
+  (neighbours[1].color === OCEAN && neighbours[6].color === OCEAN) ||
+  (neighbours[0].color === OCEAN && neighbours[7].color === OCEAN) ||
+  (neighbours[2].color === OCEAN && neighbours[5].color === OCEAN)) {
+    return OCEAN;
   }
   return tile.color;
 }
@@ -162,7 +168,18 @@ const seedIsland = () => {
 }
 
 const analyze = () => {
-  const cases = {};
+  const cases = {
+    GRASS: [
+      { GRASS: 0, OCEAN: 0}, { GRASS: 0, OCEAN: 0 }, { GRASS: 0, OCEAN: 0 },
+      { GRASS: 0, OCEAN: 0 },                        { GRASS: 0, OCEAN: 0 },
+      { GRASS: 0, OCEAN: 0}, { GRASS: 0, OCEAN: 0 }, { GRASS: 0, OCEAN: 0 },
+    ],
+    OCEAN: [
+      { GRASS: 0, OCEAN: 0}, { GRASS: 0, OCEAN: 0}, { GRASS: 0, OCEAN: 0 },
+      { GRASS: 0, OCEAN: 0},                        { GRASS: 0, OCEAN: 0 },
+      { GRASS: 0, OCEAN: 0}, { GRASS: 0, OCEAN: 0}, { GRASS: 0, OCEAN: 0 },
+    ],
+  };
 
   const countGrass = (n) => n.filter(x => x.color === GRASS).length;
   const countOcean = (n) => n.filter(x => x.color === OCEAN).length
@@ -171,50 +188,23 @@ const analyze = () => {
     const n = getNeighbours(tile);
 
     if (n.filter(x => !x.color).length > 7) return;
-    const grass = countGrass(n);
-    const ocean = countOcean(n);
-
-    const forGrass = `grass:${grass}`;
-    const forOcean = `ocean:${ocean}`;
-
-    if (cases[forGrass]) {
-      if (tile.color === GRASS) {
-        cases[forGrass].positive++;
-      } else {
-        cases[forGrass].negative++;
-      }
-    } else {
-      cases[forGrass] = { positive: tile.color === GRASS ? 1 : 0, negative: tile.color === GRASS ? 0 : 1 };
-    }
-    if (cases[forOcean]) {
-      if (tile.color === OCEAN) {
-        cases[forOcean].positive++;
-      } else {
-        cases[forOcean].negative++;
-      }
-    } else {
-      cases[forOcean] = { positive: tile.color === OCEAN ? 1 : 0, negative: tile.color === OCEAN ? 0 : 1 };
-    }
+    
+    n.forEach((x, i) => {
+      if (!tile.color || !x.color) return;
+      cases[tile.color][i][x.color]++;
+    });
   }));
 
-  const chances = Object.keys(cases).map(c => {
-    const value = cases[c];
-    if (value.positive === 0) {
-      return { key: c, chance: 0 };
-    }
+  Object.keys(cases).forEach(key => {
+    cases[key].forEach(chances => {
+      const total = chances.GRASS + chances.OCEAN;
+      chances[GRASS] = chances[GRASS] / total;
+      chances[OCEAN] = chances[OCEAN] / total;
+    })
+  });
 
-    if (value.negative === 0) {
-      return { key: c, chance: 1 };
-    }
-
-    const sum = value.positive + value.negative;
-    return { key: c, chance: value.positive / sum };
-  }).reduce((collection, current) => {
-    collection[current.key] = current.chance;
-    return collection;
-  }, {});
-  console.log(JSON.stringify(chances));
-  return chances;
+  console.log(JSON.stringify(cases));
+  return cases;
 }
 
 // applyRule(randomCreateOceanRule);
