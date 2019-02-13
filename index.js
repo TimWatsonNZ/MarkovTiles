@@ -12,16 +12,21 @@ let tiles = [];
 const GRASS = 'GRASS';
 const OCEAN = 'OCEAN';
 const FOREST = 'FOREST';
+const NONE = 'NONE';
+
+const G = GRASS;
+const O = OCEAN;
 
 const colors = {
   GRASS: '#00FF00',
   OCEAN: '#0000FF',
-  FOREST: '#006400'
+  FOREST: '#006400',
+  NONE: '#FFFFFF',
 }
 
 class Tile {
   constructor(x, y, color) {
-    this.x = x; this.y = y; this.color = color;
+    this.x = x; this.y = y; this.color = color || NONE;
   }
 
   draw(context) {
@@ -41,15 +46,25 @@ for (let row = 0;row < height/tileSize;row++) {
 }
 
 
-function getNeighbours(centerTile) {
+function getNeighbours(centerTile, size) {
   const index = { x: centerTile.x / tileSize, y: centerTile.y / tileSize };
   let grid = tiles;
   const tile = grid[index.y][index.x];
-  const allDeltas = [
-    { x:-1, y: -1 }, {x: 0, y: -1},  { x: 1, y: -1},
-    { x:-1, y:  0 },              ,  { x: 1, y:  0},
-    { x:-1, y:  1 }, {x: 0, y:  1 }, { x: 1, y:  1},
-  ];
+  // const allDeltas = [
+  //   { x:-1, y: -1 }, {x: 0, y: -1},  { x: 1, y: -1},
+  //   { x:-1, y:  0 },              ,  { x: 1, y:  0},
+  //   { x:-1, y:  1 }, {x: 0, y:  1 }, { x: 1, y:  1},
+  // ];
+
+  const allDeltas = [];
+  for(let h = 0;h < size; h++) {
+    for (let w = 0;w < size;w++) {
+      const x = w - (size-1)/2;
+      const y = h - (size-1)/2;
+      if (x === 0 && y === 0) continue;
+      allDeltas.push({ x, y });
+    }
+  }
 
   const neighbours = [];
   if (!tile) {
@@ -87,45 +102,23 @@ const createOceanRule = (tile) => {
 }
 
 const grow = (chances) => (tile) => {
-  const neighbours = getNeighbours(tile);
+  const n = getNeighbours(tile, 3);
 
-  const matrixChances = { OCEAN: 0, GRASS: 0 };
+  if (n.length < 4) return tile.color;
+  
+  const topLeftTile = n[0];
+  const leftTile = n[3];
+  const topTile = n[1];
+  const key = `${topLeftTile.color}:${topTile.color}:${leftTile.color}`;
 
-  neighbours.forEach((neighbour, i) => {
-    if (!neighbour.color) return;
-    if (!tile.color) {
-      matrixChances[neighbour.color] += chances[neighbour.color][i][neighbour.color];
-    } else {
-      matrixChances[neighbour.color] += chances[tile.color][i][neighbour.color];
-    }
-  });
-
-  const sum = matrixChances[OCEAN] + matrixChances[GRASS];
-  if (sum === 0) {
+  if (!chances[key]) {
     return tile.color;
   }
-  matrixChances[OCEAN] /= sum;
-  matrixChances[GRASS] /= sum;
-
-  if (Math.random() + matrixChances[GRASS] < Math.random() + matrixChances[OCEAN]) {
+  
+  if (Math.random() + chances[key][GRASS] < Math.random() + chances[key][OCEAN]) {
     return OCEAN;
   }
   return GRASS;
-}
-
-const createShoreline = (tile) => {
-  const neighbours = getNeighbours(tile);
-
-  if (neighbours.length < 8) {
-    return tile.color;
-  }
-  if ((neighbours[3].color === OCEAN && neighbours[4].color === OCEAN) ||
-  (neighbours[1].color === OCEAN && neighbours[6].color === OCEAN) ||
-  (neighbours[0].color === OCEAN && neighbours[7].color === OCEAN) ||
-  (neighbours[2].color === OCEAN && neighbours[5].color === OCEAN)) {
-    return OCEAN;
-  }
-  return tile.color;
 }
 
 const iterateTiles = (fnc, reassign = true) => {
@@ -153,106 +146,151 @@ const drawTiles = () => {
   iterateTiles(tile => tile.draw(context), false);
 }
 
-const seedIsland = () => {
-  const island = [
-    [OCEAN, OCEAN,OCEAN,OCEAN, OCEAN,],
-    [OCEAN, GRASS,GRASS,GRASS, OCEAN,],
-    [OCEAN, GRASS,GRASS,GRASS, OCEAN,],
-    [OCEAN, GRASS,GRASS,GRASS, OCEAN,],
-    [OCEAN, OCEAN,GRASS,OCEAN, OCEAN,],
-  ];
 
-  const middle = Math.round(tiles.length / 2) - Math.round(island.length / 2);
+const applyShape = (shape) => {
+  const middle = Math.round(tiles.length / 2) - Math.round(shape.length / 2);
 
-  for (let row = 0;row < island.length; row++){
-    for (let column = 0;column < island.length; column++){
-      tiles[middle + row][middle + column].color = island[row][column];
+  for (let row = 0;row < shape.length; row++){
+    for (let column = 0;column < shape[row].length; column++){
+      tiles[middle + row][middle + column].color = shape[row][column];
     }
   }
 }
+const seedIsland = () => {
+  const island = [
+    [O, O,O,O, O,],
+    [O, O,O,O, O,],
+    [O, G,G,G, O,],
+    [O, G,G,G, O,],
+    [O, G,G,G, O,],
+    [O, O,O,O, O,],
+    [O, O,O,O, O,],
+  ];
+
+  applyShape(island);
+}
+
+const seedBigIsland = () => {
+  const island = [
+    [O, O,O,O, O,O,O,O],
+    [O, O,O,O, O,O,O,O],
+    [O, O,G,G, G,G,O,O],
+    [O, O,G,G, G,G,O,O],
+    [O, O,G,G, G,G,O,O],
+    [O, O,G,G, G,G,O,O],
+    [O, O,O,O, O,O,O,O],
+    [O, O,O,O, O,O,O,O],
+  ];
+
+  applyShape(island);
+}
+
 
 const seedT = () => {
   const t = [
-    [GRASS, GRASS,GRASS,GRASS, GRASS, GRASS, GRASS],
-    [GRASS, GRASS,GRASS,GRASS, GRASS, GRASS, GRASS],
-    [GRASS, GRASS,GRASS,GRASS, GRASS, GRASS, GRASS],
-    [OCEAN, OCEAN,GRASS,GRASS, GRASS, OCEAN, OCEAN],
-    [OCEAN, OCEAN,GRASS,GRASS, GRASS, OCEAN, OCEAN],
-    [OCEAN, OCEAN,GRASS,GRASS, GRASS, OCEAN, OCEAN],
-    [OCEAN, OCEAN,GRASS,GRASS, GRASS, OCEAN, OCEAN],
-    [OCEAN, OCEAN,GRASS,GRASS, GRASS, OCEAN, OCEAN],
-    [OCEAN, OCEAN,GRASS,GRASS, GRASS, OCEAN, OCEAN],
-    [OCEAN, OCEAN,GRASS,GRASS, GRASS, OCEAN, OCEAN],
+    [G, G,G,G, G, G, G],
+    [G, G,G,G, G, G, G],
+    [G, G,G,G, G, G, G],
+    [O, O,G,G, G, O, O],
+    [O, O,G,G, G, O, O],
+    [O, O,G,G, G, O, O],
+    [O, O,G,G, G, O, O],
+    [O, O,G,G, G, O, O],
+    [O, O,G,G, G, O, O],
+    [O, O,G,G, G, O, O],
   ];
 
-  const middle = Math.round(tiles.length / 2) - Math.round(t.length / 2);
+  applyShape(t);
+}
 
-  for (let row = 0;row < t.length; row++){
-    for (let column = 0;column < t.length; column++){
-      tiles[middle + row][middle + column].color = t[row][column];
-    }
-  }
+
+const seedStar = () => {
+  const t = [
+    [O, O,O,G, O, O, O],
+    [O, O,O,G, O, O, O],
+    [O, O,G,G, G, O, O],
+    [G, G,G,G, G, G, G],
+    [G, G,G,G, G, G, G],
+    [O, O,G,G, G, O, O],
+    [O, O,O,G, O, O, O],
+    [O, O,O,G, O, O, O],
+    [O, O,O,G, O, O, O],
+  ];
+
+  applyShape(t);
+}
+
+const seedNZ = () => {
+  const t = [
+    [O,O,O,O,O,O,G,O,O,O,O,O,O],
+    [O,O,O,O,O,O,G,G,O,O,O,O,O],
+    [O,O,O,O,O,O,O,G,G,O,O,O,O],
+    [O,O,O,O,O,O,O,G,G,G,O,O,O],
+    [O,O,O,O,O,O,O,O,G,G,O,G,O],
+    [O,O,O,O,O,O,O,O,G,G,G,G,O],
+    [O,O,O,O,O,O,O,G,G,G,G,G,O],
+    [O,O,O,O,O,O,O,O,G,G,G,O,O],
+    [O,O,O,O,O,O,O,O,G,G,G,O,O],
+    [O,O,O,O,O,O,O,G,G,G,O,O,O],
+    [O,O,O,O,O,O,O,O,O,O,O,O,O],
+    [O,O,O,O,O,O,G,G,G,O,O,O,O],
+    [O,O,O,O,O,G,G,G,O,O,O,O,O],
+    [O,O,O,O,G,G,G,G,G,O,O,O,O],
+    [O,O,O,G,G,G,O,O,O,O,O,O,O],
+    [O,O,G,G,G,O,O,O,O,O,O,O,O],
+    [O,G,G,G,O,O,O,O,O,O,O,O,O],
+    [O,O,O,O,O,O,O,O,O,O,O,O,O],
+  ];
+
+  applyShape(t);
 }
 
 const analyze = () => {
-  const cases = {
-    GRASS: [
-      { GRASS: 0, OCEAN: 0}, { GRASS: 0, OCEAN: 0 }, { GRASS: 0, OCEAN: 0 },
-      { GRASS: 0, OCEAN: 0 },                        { GRASS: 0, OCEAN: 0 },
-      { GRASS: 0, OCEAN: 0}, { GRASS: 0, OCEAN: 0 }, { GRASS: 0, OCEAN: 0 },
-    ],
-    OCEAN: [
-      { GRASS: 0, OCEAN: 0}, { GRASS: 0, OCEAN: 0}, { GRASS: 0, OCEAN: 0 },
-      { GRASS: 0, OCEAN: 0},                        { GRASS: 0, OCEAN: 0 },
-      { GRASS: 0, OCEAN: 0}, { GRASS: 0, OCEAN: 0}, { GRASS: 0, OCEAN: 0 },
-    ],
-  };
-
-  const countGrass = (n) => n.filter(x => x.color === GRASS).length;
-  const countOcean = (n) => n.filter(x => x.color === OCEAN).length
-
+  
+  const cases = {};
   tiles.forEach(row => row.forEach(tile => {
-    const n = getNeighbours(tile);
+    const n = getNeighbours(tile, 5);
+    if (n.length < 12) {
+      return;
+    }
 
-    if (n.filter(x => !x.color).length > 7) return;
-    
-    n.forEach((x, i) => {
-      if (!tile.color || !x.color) return;
-      cases[tile.color][i][x.color]++;
-    });
+    const mTiles = [0,1,2,5,6,7,10,11];
+
+    const key = `${topLeftTile.color}:${topTile.color}:${leftTile.color}`;
+
+    if (cases[key]) {
+      cases[key][tile.color]++;
+    } else {
+      const obj = { };
+      obj[GRASS] = 0;
+      obj[OCEAN] = 0;
+      obj[NONE] = 0;
+
+      obj[tile.color]++;
+      cases[key] = obj;
+    }
   }));
 
   Object.keys(cases).forEach(key => {
-    cases[key].forEach(chances => {
-      const total = chances.GRASS + chances.OCEAN;
-      chances[GRASS] = chances[GRASS] / total;
-      chances[OCEAN] = chances[OCEAN] / total;
-    })
+    const total = cases[key].GRASS + cases[key].OCEAN || 1;
+    cases[key][GRASS] = cases[key][GRASS] / total;
+    cases[key][OCEAN] = cases[key][OCEAN] / total;
+    delete cases[key][NONE]
   });
 
-  console.log(JSON.stringify(cases));
   return cases;
 }
 
-// applyRule(randomCreateOceanRule);
-// applyRule(grow)
-// applyRule(createShoreline);
-seedT();
+seedNZ();
 const chances = analyze();
-applyRule(grow(chances));
-applyRule(grow(chances));
-applyRule(grow(chances));
-applyRule(grow(chances));
-applyRule(grow(chances));
-applyRule(grow(chances));
-applyRule(grow(chances));
-applyRule(grow(chances));
-applyRule(grow(chances));
-applyRule(grow(chances));
-applyRule(grow(chances));
-applyRule(grow(chances));
-applyRule(grow(chances));
-// applyRule(grow(chances));
-// applyRule(grow);
-// applyRule(grow);
+
 drawTiles();
+document.getElementById('iterate').onclick = function(){
+  applyRule(grow(chances));
+  drawTiles();
+}
+
+setInterval(() => {
+  applyRule(grow(chances));
+  drawTiles();
+}, 200)
